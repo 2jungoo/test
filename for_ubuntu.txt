@@ -1,21 +1,37 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <ctype.h>
 #include "file_utils.h"
 
-void printfile(const char *filename) {
+void wc(const char *filename) {
     FILE *fp;
-    char buffer[1024];
+    int chars = 0, words = 0, lines = 0;
+    int c;
+    int in_word = 0;
 
     if ((fp = fopen(filename, "r")) == NULL) {
         perror(filename);
         return;
     }
 
-    printf("--- 파일 내용 ---\n");
-    while (fgets(buffer, sizeof(buffer), fp) != NULL) {
-        printf("%s", buffer);
+    while ((c = getc(fp)) != EOF) {
+        chars++;
+        if (c == '\n') {
+            lines++;
+        }
+        if (isspace(c)) {
+            in_word = 0;
+        } else if (in_word == 0) {
+            in_word = 1;
+            words++;
+        }
     }
-    printf("-----------------\n\n");
+
+    printf("--- 파일 통계 ---\n");
+    printf("글자 수: %d\n", chars);
+    printf("단어 수: %d\n", words);
+    printf("줄 수: %d\n", lines);
+    printf("-----------------\n");
 
     fclose(fp);
 }
