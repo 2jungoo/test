@@ -1,44 +1,21 @@
-
 #include <stdio.h>
+#include <stdlib.h>
+#include "file_utils.h"
 
-// 함수 선언
-size_t my_strlen(const char *str) {
-    const char *p = str; // 시작 주소 저장
-    while (*p) {         // 포인터 p를 null 문자가 나올 때까지 이동
-        p++;
+void printfile(const char *filename) {
+    FILE *fp;
+    char buffer[1024];
+
+    if ((fp = fopen(filename, "r")) == NULL) {
+        perror(filename);
+        return;
     }
-    return p - str;      // 끝 주소 - 시작 주소 = 길이
-}
-char* my_strcpy(char *dest, const char *src) {
-    char *p = dest; // 반환할 시작 주소 저장
-    // *src를 *dest에 대입하고, 두 포인터를 1씩 증가
-    // 복사된 값이 '\0'(false)가 되면 루프 종료
-    while ((*dest++ = *src++));
-    return p;
-}
-char* my_strcat(char *dest, const char *src) {
-    char *p = dest;
-    // 1. dest의 끝(null 문자 위치)으로 포인터를 이동
-    while (*p) {
-        p++;
+
+    printf("--- 파일 내용 ---\n");
+    while (fgets(buffer, sizeof(buffer), fp) != NULL) {
+        printf("%s", buffer);
     }
-    // 2. 그 위치부터 src 문자열을 복사
-    while ((*p++ = *src++));
-    return dest;
-}
+    printf("-----------------\n\n");
 
-int main() {
-    char str1[50] = "My name is";
-    char str2[] = " jungoo!";
-    char str3[50];
-
-    printf("str1 길이: %zu\n", my_strlen(str1));
-    
-    my_strcpy(str3, str1);
-    printf("복사된 str3: %s\n", str3);
-
-    my_strcat(str1, str2);
-    printf("이어붙인 str1: %s\n", str1);
-
-    return 0;
+    fclose(fp);
 }
