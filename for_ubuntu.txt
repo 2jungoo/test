@@ -1,37 +1,15 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <ctype.h>
 #include "file_utils.h"
 
-void wc(const char *filename) {
-    FILE *fp;
-    int chars = 0, words = 0, lines = 0;
-    int c;
-    int in_word = 0;
-
-    if ((fp = fopen(filename, "r")) == NULL) {
-        perror(filename);
-        return;
+int main(int argc, char *argv[]) {
+    if (argc < 2) {
+        fprintf(stderr, "사용법: %s <파일이름>\n", argv[0]);
+        exit(1);
     }
 
-    while ((c = getc(fp)) != EOF) {
-        chars++;
-        if (c == '\n') {
-            lines++;
-        }
-        if (isspace(c)) {
-            in_word = 0;
-        } else if (in_word == 0) {
-            in_word = 1;
-            words++;
-        }
-    }
+    printfile(argv[1]);
+    wc(argv[1]);
 
-    printf("--- 파일 통계 ---\n");
-    printf("글자 수: %d\n", chars);
-    printf("단어 수: %d\n", words);
-    printf("줄 수: %d\n", lines);
-    printf("-----------------\n");
-
-    fclose(fp);
+    return 0;
 }
