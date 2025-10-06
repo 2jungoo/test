@@ -1,26 +1,102 @@
-# 컴파일러와 옵션 지정
-CC = gcc
-CFLAGS = -g -Wall
+#include <stdio.h>
+#include <fcntl.h>
+#include <unistd.h>
 
-# 최종 실행 파일 이름
-TARGET = file_analyzer
+#define BUFFER_SIZE 4096
 
-# 소스 파일 목록
-SRCS = main.c print.c word.c
+int main(int argc, char *argv[]) {
+    int fd1, fd2;
+    char buffer1[BUFFER_SIZE], buffer2[BUFFER_SIZE];
+    ssize_t bytes1, bytes2;
+    long position = 0;      // 파일 내 절대 위치
+    int found_diff = 0;
 
-# 소스 파일로부터 생성될 오브젝트 파일 목록
-OBJS = $(SRCS:.c=.o)
+    // 명령행 인수 확인
+    if (argc != 3) {
+        fprintf(stderr, "사용법: %s <파일1> <파일2>\n", argv[0]);
+        return 1;
+    }
 
-# 최종 타겟 빌드 규칙
-$(TARGET): $(OBJS)
-	$(CC) $(CFLAGS) -o $(TARGET) $(OBJS)
+    // 두 파일 열기
+    fd1 = open(argv[1], O_RDONLY);
+    fd2 = open(argv[2], O_RDONLY);
 
-# .c 파일로부터 .o 파일을 만드는 규칙
-%.o: %.c file_utils.h
-	$(CC) $(CFLAGS) -c $< -o $@
+    if (fd1 == -1 || fd2 == -1) {
+        perror("파일 열기 실패");
+        return 1;
+    }
 
-# 이전 빌드 결과물 삭제
-clean:
-	rm -f $(TARGET) $(OBJS)
+    // 파일 비교 루프
+    while (1) {
+        // 두 파일에서 동시에 읽기
+        bytes1 = read(fd1, buffer1, BUFFER_SIZE);
+        bytes2 = read(fd2, buffer2, BUFFER_SIZE);
 
-.PHONY: clean
+        if (bytes1 == -1 || bytes2 == -1) {
+            perror("읽기 실패");
+            close(fd1);
+            close(fd2);
+            return 1;
+        }
+
+        // 읽은 크기가 다르면 (파일 길이가 다름)
+        if (bytes1 != bytes2) {
+            ssize_t min_bytes = (bytes1 < bytes2) ? bytes1 : bytes2;
+
+            // 공통 부분 먼저 비교
+            for (ssize_t i = 0; i < min_bytes; i++) {
+                if (buffer1[i] != buffer2[i]) {
+                    printf("차이 발견: 위치 %ld\n", position + i);
+                    printf("파일1: 0x%02X ('%c')\n",
+                           (unsigned char)buffer1[i],
+                           buffer1[i] >= 32 && buffer1[i] <= 126 ? buffer1[i] : '.');
+                    printf("파일2: 0x%02X ('%c')\n",
+                           (unsigned char)buffer2[i],
+                           buffer2[i] >= 32 && buffer2[i] <= 126 ? buffer2[i] : '.');
+                    found_diff = 1;
+                    break;
+                }
+            }
+
+            // 공통 부분에서 차이가 없으면 길이 차이가 첫 번째 차이
+            if (!found_diff) {
+                printf("차이 발견: 위치 %ld (파일 크기가 다름)\n", position + min_bytes);
+                printf("파일1 크기: %ld바이트\n", position + bytes1);
+                printf("파일2 크기: %ld바이트\n", position + bytes2);
+            }
+            break;
+        }
+
+        // EOF 도달 (두 파일 모두 끝)
+        if (bytes1 == 0) {
+            printf("두 파일이 동일합니다.\n");
+            break;
+        }
+
+        // 버퍼 내용 바이트 단위 비교
+        for (ssize_t i = 0; i < bytes1; i++) {
+            if (buffer1[i] != buffer2[i]) {
+                printf("차이 발견: 위치 %ld\n", position + i);
+                printf("파일1: 0x%02X ('%c')\n",
+                       (unsigned char)buffer1[i],
+                       buffer1[i] >= 32 && buffer1[i] <= 126 ? buffer1[i] : '.');
+                printf("파일2: 0x%02X ('%c')\n",
+                       (unsigned char)buffer2[i],
+                       buffer2[i] >= 32 && buffer2[i] <= 126 ? buffer2[i] : '.');
+                found_diff = 1;
+                break;
+            }
+        }
+
+        if (found_diff) break;
+
+        // 현재까지 읽은 위치 업데이트
+        position += bytes1;
+    }
+
+    // 파일 닫기
+    close(fd1);
+    close(fd2);
+
+    return 0;
+}
