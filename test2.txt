@@ -1,119 +1,73 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <dirent.h>
-#include <pwd.h>
-#include <grp.h>
-#include <time.h>
-#include <string.h>
+#include <fcntl.h>
 #include <unistd.h>
-
-void print_file_info(char *filename, int show_size, int show_long, int show_inode) {
-    struct stat statbuf;
-    
-    if (lstat(filename, &statbuf) == -1) {
-        perror(filename);
-        return;
-    }
-    
-    // -i 옵션: inode 번호 출력
-    if (show_inode) {
-        printf("%8ld ", statbuf.st_ino);
-    }
-    
-    // -s 옵션: 크기 출력 (블록 단위)
-    if (show_size) {
-        printf("%6ld ", statbuf.st_blocks);
-    }
-    
-    // -l 옵션: 상세 정보 출력
-    if (show_long) {
-        // 파일 타입과 권한
-        printf("%c", S_ISDIR(statbuf.st_mode) ? 'd' : '-');
-        printf("%c", (statbuf.st_mode & S_IRUSR) ? 'r' : '-');
-        printf("%c", (statbuf.st_mode & S_IWUSR) ? 'w' : '-');
-        printf("%c", (statbuf.st_mode & S_IXUSR) ? 'x' : '-');
-        printf("%c", (statbuf.st_mode & S_IRGRP) ? 'r' : '-');
-        printf("%c", (statbuf.st_mode & S_IWGRP) ? 'w' : '-');
-        printf("%c", (statbuf.st_mode & S_IXGRP) ? 'x' : '-');
-        printf("%c", (statbuf.st_mode & S_IROTH) ? 'r' : '-');
-        printf("%c", (statbuf.st_mode & S_IWOTH) ? 'w' : '-');
-        printf("%c ", (statbuf.st_mode & S_IXOTH) ? 'x' : '-');
-        
-        // 링크 수
-        printf("%3ld ", statbuf.st_nlink);
-        
-        // 소유자
-        struct passwd *pwd = getpwuid(statbuf.st_uid);
-        printf("%s ", pwd ? pwd->pw_name : "unknown");
-        
-        // 그룹
-        struct group *grp = getgrgid(statbuf.st_gid);
-        printf("%s ", grp ? grp->gr_name : "unknown");
-        
-        // 크기
-        printf("%8ld ", statbuf.st_size);
-        
-        // 수정 시간
-        char timebuf[80];
-        struct tm *tm = localtime(&statbuf.st_mtime);
-        strftime(timebuf, sizeof(timebuf), "%b %d %H:%M", tm);
-        printf("%s ", timebuf);
-    }
-    
-    printf("%s\n", filename);
-}
+#include <sys/file.h>
+#include <string.h>
 
 int main(int argc, char *argv[]) {
-    DIR *dp;
-    struct dirent *dentry;
-    int show_size = 0, show_long = 0, show_inode = 0;
-    char *dirname = ".";
-    int opt;
+    int fd;
+    char editor[256] = "vi";  // 기본 편집기
+    char command[512];
     
-    // 옵션 처리
-    while ((opt = getopt(argc, argv, "sli")) != -1) {
-        switch (opt) {
-            case 's':
-                show_size = 1;
-                break;
-            case 'l':
-                show_long = 1;
-                break;
-            case 'i':
-                show_inode = 1;
-                break;
-            default:
-                fprintf(stderr, "Usage: %s [-s] [-l] [-i] [directory]\n", argv[0]);
-                exit(1);
-        }
+    // 명령줄 인수 확인
+    if (argc < 2) {
+        fprintf(stderr, "사용법: %s <파일명> [편집기]\n", argv[0]);
+        fprintf(stderr, "예: %s file.txt vim\n", argv[0]);
+        return 1;
     }
     
-    // 디렉터리 이름 처리
-    if (optind < argc) {
-        dirname = argv[optind];
+    // 편집기 지정 (선택사항)
+    if (argc >= 3) {
+        strncpy(editor, argv[2], sizeof(editor) - 1);
     }
     
-    // 디렉터리 열기
-    if ((dp = opendir(dirname)) == NULL) {
-        perror(dirname);
-        exit(1);
+    printf("파일 '%s'를 %s로 편집합니다.\n", argv[1], editor);
+    
+    // 파일 열기 (읽기/쓰기 모드)
+    fd = open(argv[1], O_RDWR | O_CREAT, 0644);
+    if (fd == -1) {
+        perror("파일 열기 실패");
+        return 1;
     }
     
-    // 디렉터리 변경
-    if (chdir(dirname) == -1) {
-        perror(dirname);
-        exit(1);
+    // 파일 전체에 배타적 잠금 설정
+    printf("파일 잠금 시도 중...\n");
+    
+    if (flock(fd, LOCK_EX) == -1) {
+        perror("파일 잠금 실패");
+        close(fd);
+        return 1;
     }
     
-    // 파일 목록 출력
-    while ((dentry = readdir(dp)) != NULL) {
-        if (dentry->d_name[0] == '.') // 숨김 파일 제외
-            continue;
-        print_file_info(dentry->d_name, show_size, show_long, show_inode);
+    printf("파일 잠금 성공!\n");
+    printf("다른 프로세스는 이 파일을 수정할 수 없습니다.\n");
+    printf("편집을 시작합니다...\n\n");
+    
+    // 편집기 실행 명령 생성
+    snprintf(command, sizeof(command), "%s %s", editor, argv[1]);
+    
+    // system() 함수로 편집기 실행
+    int result = system(command);
+    
+    if (result == -1) {
+        perror("편집기 실행 실패");
+    } else if (result == 0) {
+        printf("\n편집 완료!\n");
+    } else {
+        printf("\n편집기가 종료되었습니다. (종료 코드: %d)\n", result);
     }
     
-    closedir(dp);
+    // 파일 잠금 해제
+    printf("파일 잠금 해제 중...\n");
+    if (flock(fd, LOCK_UN) == -1) {
+        perror("잠금 해제 실패");
+    } else {
+        printf("파일 잠금 해제 완료!\n");
+    }
+    
+    // 파일 닫기
+    close(fd);
+    
     return 0;
 }
