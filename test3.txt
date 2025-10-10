@@ -22,11 +22,18 @@ long calculate_dir_size(char *dirname, int show_subdirs) {
     
     while ((dentry = readdir(dp)) != NULL) {
         // . 과 .. 제외
-        if (strcmp(dentry->d_name, ".") == 0 || strcmp(dentry->d_name, "..") == 0)
+        if (strcmp(dentry->d_name, ".") == 0 || 
+            strcmp(dentry->d_name, "..") == 0)
             continue;
         
-        // 전체 경로 생성
-        snprintf(path, sizeof(path), "%s/%s", dirname, dentry->d_name);
+        // 전체 경로 생성 (슬래시 중복 방지)
+        if (strcmp(dirname, ".") == 0) {
+            snprintf(path, sizeof(path), "./%s", dentry->d_name);
+        } else if (dirname[strlen(dirname)-1] == '/') {
+            snprintf(path, sizeof(path), "%s%s", dirname, dentry->d_name);
+        } else {
+            snprintf(path, sizeof(path), "%s/%s", dirname, dentry->d_name);
+        }
         
         if (lstat(path, &statbuf) == -1) {
             perror(path);
@@ -39,7 +46,7 @@ long calculate_dir_size(char *dirname, int show_subdirs) {
             total_size += subdir_size;
             
             if (show_subdirs) {
-                printf("%8ld\t%s\n", subdir_size / 1024, path);
+                printf("%ld\t%s\n", subdir_size / 1024, path);
             }
         } else {
             // 파일인 경우
@@ -55,12 +62,16 @@ int main(int argc, char *argv[]) {
     char *dirname = ".";
     long total_size;
     
+    // 명령줄 인수 처리
     if (argc > 1) {
         dirname = argv[1];
     }
     
+    // 디렉터리 크기 계산
     total_size = calculate_dir_size(dirname, 1);
-    printf("%8ld\t%s\n", total_size / 1024, dirname);
+    
+    // 최종 결과 출력
+    printf("%ld\t%s\n", total_size / 1024, dirname);
     
     return 0;
 }
