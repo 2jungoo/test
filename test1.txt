@@ -1,0 +1,42 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#define MAX_LINE 1024
+int main(int argc, char *argv[]) {
+    FILE *fp;
+    char line[MAX_LINE];
+    int line_number = 1;
+    int use_line_numbers = 0;
+    int file_index = 1;
+    
+    // 옵션 확인
+    if (argc >= 2 && strcmp(argv[1], "-n") == 0) {
+        use_line_numbers = 1;
+        file_index = 2;
+    }
+    
+    // 파일명 확인
+    if (argc < file_index + 1) {
+        printf("사용법: %s [-n] filename\n", argv[0]);
+        return 1;
+    }
+    
+    // 파일 열기
+    fp = fopen(argv[file_index], "r");
+    if (fp == NULL) {
+        printf("파일 %s를 열 수 없습니다.\n", argv[file_index]);
+        return 1;
+    }
+    
+    // 파일 내용 출력
+    while (fgets(line, MAX_LINE, fp) != NULL) {
+        if (use_line_numbers) {
+            printf("%6d  %s", line_number++, line);
+        } else {
+            printf("%s", line);
+        }
+    }
+    
+    fclose(fp);
+    return 0;
+}
