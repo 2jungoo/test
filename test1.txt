@@ -1,42 +1,61 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#define MAX_LINE 1024
-int main(int argc, char *argv[]) {
-    FILE *fp;
-    char line[MAX_LINE];
-    int line_number = 1;
-    int use_line_numbers = 0;
-    int file_index = 1;
-    
-    // 옵션 확인
-    if (argc >= 2 && strcmp(argv[1], "-n") == 0) {
-        use_line_numbers = 1;
-        file_index = 2;
+
+typedef struct Node {
+    char *line;
+    struct Node *next;
+} Node;
+
+// 사전순 삽입 함수
+void insert(Node **head, char *str) {
+    Node *newNode = (Node *)malloc(sizeof(Node));
+    newNode->line = strdup(str);  // malloc + strcpy 기능
+    newNode->next = NULL;
+
+    if (*head == NULL || strcmp(str, (*head)->line) < 0) {
+        newNode->next = *head;
+        *head = newNode;
+        return;
     }
-    
-    // 파일명 확인
-    if (argc < file_index + 1) {
-        printf("사용법: %s [-n] filename\n", argv[0]);
-        return 1;
+
+    Node *cur = *head;
+    while (cur->next && strcmp(str, cur->next->line) > 0)
+        cur = cur->next;
+
+    newNode->next = cur->next;
+    cur->next = newNode;
+}
+
+// 리스트 출력 함수
+void printList(Node *head) {
+    while (head) {
+        printf("%s", head->line);
+        head = head->next;
     }
-    
-    // 파일 열기
-    fp = fopen(argv[file_index], "r");
-    if (fp == NULL) {
-        printf("파일 %s를 열 수 없습니다.\n", argv[file_index]);
-        return 1;
+}
+
+// 메모리 해제 함수
+void freeList(Node *head) {
+    while (head) {
+        Node *temp = head;
+        head = head->next;
+        free(temp->line);
+        free(temp);
     }
-    
-    // 파일 내용 출력
-    while (fgets(line, MAX_LINE, fp) != NULL) {
-        if (use_line_numbers) {
-            printf("%6d  %s", line_number++, line);
-        } else {
-            printf("%s", line);
-        }
+}
+
+int main() {
+    Node *head = NULL;
+    char buffer[256];
+
+    printf("Enter lines (Ctrl+D to end):\n");
+    while (fgets(buffer, sizeof(buffer), stdin)) {
+        insert(&head, buffer);
     }
-    
-    fclose(fp);
+
+    printf("\n--- Sorted Lines ---\n");
+    printList(head);
+    freeList(head);
     return 0;
 }
