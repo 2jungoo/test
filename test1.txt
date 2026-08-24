@@ -1,8 +1,2 @@
-python EnlightSDK/converter.py ./input_networks/yolov8s_extracted.onnx \
---type obj \
---add-detection-post-process ./input_networks/yolov8s.bin \
---dataset Custom --dataset-root my_dataset_path \
---output ./output_networks/yolov8s.enlight \
---enable-track --mean 0 0 0 --std 1 1 1 \
---num-class 80 --yolo-version v8 --enable-letterbox --dfl-reg-max 16 \
---output-order cl --num-images 1
+python EnlightSDK/quantizer.py output_networks/yolov8s.enlight \
+--output output_networks/yolov8s_quantized.enlight
