@@ -1,9 +1,8 @@
-python3 EnlightSDK/converter.py \
-Lenet5/lenet_with_conv3.onnx \
---type class \
---dataset Custom \
---dataset-root my_dataset_path \
---output output_networks/lenet.enlight \
---enable-track \
---num-class 10
-
+python EnlightSDK/converter.py ./input_networks/yolov8s_extracted.onnx \
+--type obj \
+--add-detection-post-process ./input_networks/yolov8s.bin \
+--dataset Custom --dataset-root my_dataset_path \
+--output ./output_networks/yolov8s.enlight \
+--enable-track --mean 0 0 0 --std 1 1 1 \
+--num-class 80 --yolo-version v8 --enable-letterbox --dfl-reg-max 16 \
+--output-order cl --num-images 1
